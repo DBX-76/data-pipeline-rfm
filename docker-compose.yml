@@ -1,32 +1,130 @@
-version: '3.8'
+# Pas de ligne 'version' (obsolète)
 
 services:
-  postgres:
-    image: postgres:15
+  # ---------------------------------------------------------------------------
+  # 1. BASE DE DONNÉES METADATA AIRFLOW
+  # ---------------------------------------------------------------------------
+  postgres-airflow:
+    image: postgres:13
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-airflow-data:/var/lib/postgresql/data
+    networks:
+      - rfm-network
+
+  # ---------------------------------------------------------------------------
+  # 2. BASE DE DONNÉES MÉTIER (RFM)
+  # ---------------------------------------------------------------------------
+  postgres-business:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: rfm_user
+      POSTGRES_PASSWORD: rfm_password
       POSTGRES_DB: rfm_db
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-business-data:/var/lib/postgresql/data
+    networks:
+      - rfm-network
 
-  airflow:
-    image: apache/airflow:2.9.3
-    depends_on:
-      - postgres
+# ---------------------------------------------------------------------------
+  # 3. INITIALISATION AIRFLOW (S'exécute UNE FOIS et s'arrête)
+  # ---------------------------------------------------------------------------
+  airflow-init:
+    image: apache/airflow:2.7.3
     environment:
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/rfm_db
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/rfm_db
-    ports:
-      - "8080:8080"
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=dKzXyG6J5kL9mN2pQ4rS7tU0vW3xY6zA1bC4dE7fG0h=
+      - AIRFLOW__WEBSERVER__AUTHENTICATE=True
+      - AIRFLOW__WEBSERVER__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW_UID=50000
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
       - ./scripts:/opt/airflow/scripts
-    command: ["webserver"]
+    networks:
+      - rfm-network
+    command: db init
+    depends_on:
+      - postgres-airflow
+    restart: "no" # Important : ne pas redémarrer s'il a fini
 
+  # ---------------------------------------------------------------------------
+  # 4. WEBSERVER AIRFLOW
+  # ---------------------------------------------------------------------------
+  airflow-webserver:
+    image: apache/airflow:2.7.3
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=dKzXyG6J5kL9mN2pQ4rS7tU0vW3xY6zA1bC4dE7fG0h=
+      - AIRFLOW__WEBSERVER__AUTHENTICATE=True
+      - AIRFLOW__WEBSERVER__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW_UID=50000
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True # Permet d'accéder à la config via l'UI (utile pour debug)
+      - AIRFLOW__WEBSERVER__CSRF_ENABLED=False # Désactive CSRF pour éviter les problèmes d'authentification API
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scripts:/opt/airflow/scripts
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-airflow:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully # Attend la FIN réussie de l'init
+    networks:
+      - rfm-network
+    command: webserver
+    restart: unless-stopped # Redémarre automatiquement si erreur au début
+
+  # ---------------------------------------------------------------------------
+  # 5. SCHEDULER AIRFLOW
+  # ---------------------------------------------------------------------------
+  airflow-scheduler:
+    image: apache/airflow:2.7.3
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      - AIRFLOW__CORE__FERNET_KEY=dKzXyG6J5kL9mN2pQ4rS7tU0vW3xY6zA1bC4dE7fG0h=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW_UID=50000
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scripts:/opt/airflow/scripts
+    depends_on:
+      postgres-airflow:
+        condition: service_started
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - rfm-network
+    command: scheduler
+    restart: unless-stopped
+# ---------------------------------------------------------------------------
+# VOLUMES (Stockage persistant)
+# ---------------------------------------------------------------------------
 volumes:
-  postgres_data: {}
+  postgres-airflow-data:
+  postgres-business-data:
+
+# ---------------------------------------------------------------------------
+# RÉSEAUX (Communication interne)
+# ---------------------------------------------------------------------------
+networks:
+  rfm-network:
+    driver: bridge
