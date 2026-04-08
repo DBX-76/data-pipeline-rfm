@@ -1,0 +1,19 @@
+# Logs et fichiers temporaires
+logs/
+*.log
+tmp/
+__pycache__/
+*.pyc
+
+# Données sensibles et variables d'environnement
+.env
+*.pem
+*.key
+
+# Données brutes (trop lourdes pour Git, sauf échantillon)
+data/*.csv
+data/*.parquet
+
+# Configuration locale IDE
+.vscode/
+.idea/
