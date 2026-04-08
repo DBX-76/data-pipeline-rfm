@@ -72,11 +72,13 @@ services:
       - AIRFLOW_UID=50000
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True # Permet d'accéder à la config via l'UI (utile pour debug)
       - AIRFLOW__WEBSERVER__CSRF_ENABLED=False # Désactive CSRF pour éviter les problèmes d'authentification API
+      - _PIP_ADDITIONAL_REQUIREMENTS=openpyxl==3.1.2
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
     ports:
       - "8080:8080"
     depends_on:
@@ -101,11 +103,13 @@ services:
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - AIRFLOW_UID=50000
+      - _PIP_ADDITIONAL_REQUIREMENTS=openpyxl==3.1.2
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
     depends_on:
       postgres-airflow:
         condition: service_started

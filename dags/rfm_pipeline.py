@@ -1,25 +1,42 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
+from airflow.operators.bash import BashOperator
+from datetime import datetime, timedelta
 
-from scripts.ingestion import load_data
-from scripts.transformation import compute_rfm
+# Configuration par défaut pour tous les tasks du DAG
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'start_date': datetime(2026, 4, 1), # Date passée pour déclencher immédiatement
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
 
-with DAG(
-    dag_id='rfm_pipeline',
-    start_date=days_ago(1),
-    schedule_interval='@daily',
+# Définition du DAG
+dag = DAG(
+    'rfm_data_pipeline',
+    default_args=default_args,
+    description='Pipeline complet RFM : Ingestion -> Transformation',
+    schedule_interval=None, # Déclenchement manuel (on clique sur le bouton Play)
     catchup=False,
-) as dag:
+    tags=['projet_rfm', 'etl'],
+)
 
-    ingest = PythonOperator(
-        task_id='ingest_data',
-        python_callable=load_data,
-    )
+# Tâche 1 : Ingestion des données
+# On utilise BashOperator pour lancer un script Python dans le conteneur
+task_ingestion = BashOperator(
+    task_id='ingestion_donnees_brutes',
+    bash_command='python /opt/airflow/scripts/ingestion.py',
+    dag=dag,
+)
 
-    transform = PythonOperator(
-        task_id='compute_rfm',
-        python_callable=compute_rfm,
-    )
+# Tâche 2 : Transformation RFM (À créer dans la foulée)
+task_transformation = BashOperator(
+    task_id='transformation_rfm',
+    bash_command='python /opt/airflow/scripts/transformation.py',
+    dag=dag,
+)
 
-    ingest >> transform
+# Définition de l'ordre : Ingestion DOIT finir avant Transformation
+task_ingestion >> task_transformation

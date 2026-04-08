@@ -13,7 +13,7 @@ __pycache__/
 # Données brutes (trop lourdes pour Git, sauf échantillon)
 data/*.csv
 data/*.parquet
-
+data/*.xlsx
 # Configuration locale IDE
 .vscode/
 .idea/
