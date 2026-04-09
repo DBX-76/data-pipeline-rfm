@@ -73,6 +73,9 @@ services:
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True # Permet d'accéder à la config via l'UI (utile pour debug)
       - AIRFLOW__WEBSERVER__CSRF_ENABLED=False # Désactive CSRF pour éviter les problèmes d'authentification API
       - _PIP_ADDITIONAL_REQUIREMENTS=openpyxl==3.1.2
+      - AIRFLOW_VAR_RFM_EXCEL_PATH=/opt/airflow/data/online_retail_II.xlsx
+      - AIRFLOW_VAR_RFM_RAW_TABLE=raw_online_retail
+      - AIRFLOW_VAR_RFM_RESULT_TABLE=rfm_result
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -104,6 +107,9 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - AIRFLOW_UID=50000
       - _PIP_ADDITIONAL_REQUIREMENTS=openpyxl==3.1.2
+      - AIRFLOW_VAR_RFM_EXCEL_PATH=/opt/airflow/data/online_retail_II.xlsx
+      - AIRFLOW_VAR_RFM_RAW_TABLE=raw_online_retail
+      - AIRFLOW_VAR_RFM_RESULT_TABLE=rfm_result
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
