@@ -18,18 +18,23 @@ def transform_rfm():
     db_port = os.getenv("DB_PORT", "5432")
     db_name = os.getenv("DB_NAME", "rfm_db")
     
+    # AJOUT : Récupération des noms de tables via Variables d'Environnement
+    raw_table = os.getenv("RFM_RAW_TABLE", "raw_online_retail")
+    result_table = os.getenv("RFM_RESULT_TABLE", "rfm_result")
+    
     connection_string = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
     try:
         engine = create_engine(connection_string)
         
-        # 2. Lecture des données brutes depuis Postgres
-        logger.info("📖 Lecture de la table 'raw_online_retail'...")
-        query = "SELECT * FROM raw_online_retail"
+        # 2. Lecture des données brutes depuis Postgres (Dynamique)
+        logger.info(f"📖 Lecture de la table '{raw_table}'...")
+        # Utilisation de f-string pour injecter le nom de table dynamiquement
+        query = f"SELECT * FROM {raw_table}"
         df = pd.read_sql(query, engine)
         
         if df.empty:
-            logger.warning("⚠️ La table source est vide ! Impossible de calculer le RFM.")
+            logger.warning(f"⚠️ La table source '{raw_table}' est vide ! Impossible de calculer le RFM.")
             return
 
         logger.info(f"✅ {len(df)} lignes chargées en mémoire pour calcul.")
@@ -37,13 +42,11 @@ def transform_rfm():
         # 3. Nettoyage Métier (Spécifique RFM)
         logger.info("🧹 Filtrage des retours et annulations...")
         
-        # S'assurer que les colonnes sont au bon format
         df['quantity'] = pd.to_numeric(df['quantity'], errors='coerce')
         df['price'] = pd.to_numeric(df['price'], errors='coerce')
         df['invoicedate'] = pd.to_datetime(df['invoicedate'], errors='coerce')
         
         avant_filtre = len(df)
-        # On garde uniquement les ventes réelles (quantité > 0 et prix > 0)
         df = df[(df['quantity'] > 0) & (df['price'] > 0)]
         logger.info(f"   - {avant_filtre - len(df)} lignes supprimées (retours/annulations).")
         
@@ -54,26 +57,24 @@ def transform_rfm():
         # 4. Calculs RFM
         logger.info("📊 Calcul des scores R, F, M...")
         
-        # Date de référence (Jour suivant la date max du dataset)
         snapshot_date = df['invoicedate'].max() + pd.Timedelta(days=1)
         logger.info(f"📅 Date de référence (Snapshot) : {snapshot_date}")
 
-        # Agrégation par client
         rfm = df.groupby('customer_id').agg(
-            Recency=('invoicedate', lambda x: (snapshot_date - x.max()).days), # Jours depuis dernier achat
-            Frequency=('invoice', 'nunique'),                                  # Nombre de factures DISTINCTES
-            Monetary=('price', lambda x: (x * df.loc[x.index, 'quantity']).sum()) # CA Total
+            Recency=('invoicedate', lambda x: (snapshot_date - x.max()).days),
+            Frequency=('invoice', 'nunique'),
+            Monetary=('price', lambda x: (x * df.loc[x.index, 'quantity']).sum())
         ).reset_index()
 
         logger.info("📊 Aperçu des scores RFM bruts :")
         logger.info(rfm.head())
-        logger.info(rfm.describe()) # Stats rapides
+        logger.info(rfm.describe())
 
-        # 5. Sauvegarde dans une nouvelle table
-        logger.info("💾 Sauvegarde dans la table 'rfm_result'...")
-        rfm.to_sql('rfm_result', engine, if_exists='replace', index=False)
+        # 5. Sauvegarde dans une nouvelle table (Dynamique)
+        logger.info(f"💾 Sauvegarde dans la table '{result_table}'...")
+        rfm.to_sql(result_table, engine, if_exists='replace', index=False)
         
-        logger.info(f"🚀 SUCCÈS ! Table 'rfm_result' créée avec {len(rfm)} clients uniques.")
+        logger.info(f"🚀 SUCCÈS ! Table '{result_table}' créée avec {len(rfm)} clients uniques.")
 
     except Exception as e:
         logger.error(f"❌ Erreur critique : {e}")

@@ -20,7 +20,7 @@ def ingest_data():
     
     # 2. Chemins des fichiers (dans le conteneur Docker)
     # Le fichier source est l'Excel brut
-    excel_path = "/opt/airflow/data/online_retail_II.xlsx"
+    excel_path = os.getenv("RFM_EXCEL_PATH", "/opt/airflow/data/online_retail_II.xlsx")
     
     # Vérification de l'existence du fichier
     if not os.path.exists(excel_path):
