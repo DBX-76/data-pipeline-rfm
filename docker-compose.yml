@@ -125,6 +125,29 @@ services:
       - rfm-network
     command: scheduler
     restart: unless-stopped
+
+# ---------------------------------------------------------------------------
+  # 6. CRÉATION UTILISATEUR ADMIN (Service temporaire)
+  # ---------------------------------------------------------------------------
+  airflow-create-user:
+    image: apache/airflow:2.7.3
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      - AIRFLOW_UID=50000
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    networks:
+      - rfm-network
+    depends_on:
+      airflow-webserver:
+        condition: service_started
+    # Commande condensée sur une ligne pour éviter les erreurs d'interprétation Bash
+    command: >
+      bash -c "sleep 15 && airflow users create --username admin --firstname David --lastname Brimeux --role Admin --email david.brimeux@example.com --password admin || echo 'User creation skipped (maybe already exists)'"
+    restart: "no" # Ne pas redémarrer, c'est une tâche ponctuelle
 # ---------------------------------------------------------------------------
 # VOLUMES (Stockage persistant)
 # ---------------------------------------------------------------------------
