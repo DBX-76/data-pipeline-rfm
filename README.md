@@ -43,3 +43,118 @@ Assurez-vous d'avoir installé :
 ```bash
 git clone https://github.com/DBX-76/data-pipeline-rfm.git
 cd data-pipeline-rfm
+
+## 3. Préparer les données
+
+Téléchargez le dataset **Online Retail II** (fichier Excel `.xlsx`) et placez-le dans le dossier `data/` à la racine du projet. Le fichier doit être nommé : `online_retail_II.xlsx`.
+
+> ⚠️ **Note :** Le fichier Excel est ignoré par Git (présent dans `.gitignore`) pour éviter de versionner des données lourdes. Vous devez le télécharger manuellement.
+
+---
+
+## 4. Lancer l'infrastructure
+
+```bash
+docker-compose up -d
+```
+
+> ⏳ **Patience :** Le premier démarrage peut prendre 2 à 3 minutes le temps qu'Airflow initialise sa base de données et crée l'utilisateur admin automatiquement.
+
+---
+
+## 5. Accéder à l'interface
+
+Ouvrez votre navigateur sur : [http://localhost:8080](http://localhost:8080)
+
+| Champ    | Valeur  |
+|----------|---------|
+| Username | `admin` |
+| Password | `admin` |
+
+> Ces identifiants sont créés automatiquement au premier lancement via le script d'init.
+
+---
+
+## 🏗️ Architecture du Projet
+
+Le pipeline suit un flux linéaire orchestré par Airflow :
+
+```mermaid
+graph LR
+    A[Fichier Excel Brut] -->|Ingestion| B(PostgreSQL: raw_online_retail)
+    B -->|Transformation| C{Calcul RFM}
+    C -->|Chargement| D(PostgreSQL: rfm_result)
+
+    E[Airflow DAG] -->|Orchestre| A
+    E -->|Orchestre| B
+    E -->|Orchestre| C
+```
+
+### Structure des dossiers
+
+```
+.
+├── dags/                  # Workflows Airflow (rfm_pipeline.py)
+├── scripts/               # Logique métier Python (ingestion.py, transformation.py)
+│   └── requirements.txt   # Dépendances Python
+├── data/                  # Données sources (à ajouter manuellement : online_retail_II.xlsx)
+├── logs/                  # Logs générés par Airflow
+├── docker-compose.yml     # Configuration de l'infrastructure et variables env
+├── .gitignore             # Règles d'exclusion (ex: *.xlsx, *.log)
+└── README.md              # Ce fichier
+```
+
+---
+
+## ⚙️ Configuration et Variables
+
+Contrairement à une approche classique où les variables sont créées manuellement dans l'UI, ce projet utilise des **variables d'environnement Docker** pour une reproductibilité totale.
+
+Elles sont définies dans `docker-compose.yml` avec le préfixe `AIRFLOW_VAR_` :
+
+| Variable Clé       | Valeur par défaut                              | Description                          |
+|--------------------|------------------------------------------------|--------------------------------------|
+| `rfm_excel_path`   | `/opt/airflow/data/online_retail_II.xlsx`      | Chemin du fichier source dans le conteneur |
+| `rfm_raw_table`    | `raw_online_retail`                            | Nom de la table de données brutes    |
+| `rfm_result_table` | `rfm_result`                                   | Nom de la table de résultats RFM     |
+
+> 💡 **Avantage :** Pour modifier le chemin d'un fichier ou le nom d'une table, il suffit de changer cette ligne dans le YAML et de redémarrer les conteneurs. Aucun code Python n'est à modifier.
+
+---
+
+## 📊 Détails du Pipeline (DAG)
+
+Le DAG `rfm_data_pipeline_pro` contient deux tâches principales :
+
+### `ingestion_donnees_brutes`
+- Lit le fichier Excel (fusion des 2 feuilles annuelles).
+- Nettoie les colonnes et supprime les lignes sans `CustomerID`.
+- Charge les données dans la table `raw_online_retail`.
+
+### `transformation_rfm`
+- Lit les données brutes.
+- Filtre les retours marchandises (quantités/prix négatifs).
+- Calcule pour chaque client :
+  - **Récence** : Jours depuis le dernier achat.
+  - **Fréquence** : Nombre de commandes distinctes.
+  - **Monetary** : Chiffre d'affaires total généré.
+- Sauvegarde le résultat dans `rfm_result`.
+
+> 📖 **Documentation Intégrée :** Une description détaillée est disponible directement dans l'onglet "Documentation" de l'interface Airflow.
+
+---
+
+## 🧹 Commandes Utiles
+
+| Action                        | Commande                    |
+|-------------------------------|-----------------------------|
+| Voir les logs en temps réel   | `docker-compose logs -f`    |
+| Arrêter l'infrastructure      | `docker-compose down`       |
+| Reset Total (Effacer DB & Logs) | `docker-compose down -v`  |
+| Vérifier l'état des conteneurs | `docker-compose ps`        |
+
+---
+
+## 📝 Licence
+
+Distribué sous la licence **MIT**. Voir `LICENSE` pour plus d'informations.
