@@ -30,6 +30,11 @@ services:
       - postgres-business-data:/var/lib/postgresql/data
     networks:
       - rfm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfm_user -d rfm_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 # ---------------------------------------------------------------------------
   # 3. INITIALISATION AIRFLOW (S'exécute UNE FOIS et s'arrête)
@@ -148,13 +153,30 @@ services:
     command: >
       bash -c "sleep 15 && airflow users create --username admin --firstname David --lastname Brimeux --role Admin --email david.brimeux@example.com --password admin || echo 'User creation skipped (maybe already exists)'"
     restart: "no" # Ne pas redémarrer, c'est une tâche ponctuelle
+
+
+# ---------------------------------------------------------------------------
+  # 7. BUSINESS INTELLIGENCE (Metabase) - Mode Autonome (SQLite)
+  # ---------------------------------------------------------------------------
+  metabase:
+    image: metabase/metabase:latest
+    container_name: rfm_metabase
+    ports:
+      - "3000:3000"
+    # On retire TOUTES les variables MB_DB_... pour forcer le mode SQLite interne
+    networks:
+      - rfm-network
+    # On garde juste un depends_on basique pour l'ordre de lancement
+    depends_on:
+      - postgres-business
+    restart: unless-stopped
 # ---------------------------------------------------------------------------
 # VOLUMES (Stockage persistant)
 # ---------------------------------------------------------------------------
 volumes:
   postgres-airflow-data:
   postgres-business-data:
-
+  postgres-metabase-data:
 # ---------------------------------------------------------------------------
 # RÉSEAUX (Communication interne)
 # ---------------------------------------------------------------------------

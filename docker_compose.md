@@ -1,10 +1,10 @@
 ``` mermaid
 graph TD
-    subgraph "🐳 Docker Host (Votre Machine)"
+    subgraph subHost["Docker Host"]
         
-        subgraph "🌐 Réseau: rfm-network"
+        subgraph "Réseau: rfm-network"
             
-            subgraph "✈️ Écosystème Airflow"
+            subgraph subAirflow["Écosystème Airflow"]
                 A[Airflow Webserver<br/>Port 8080]
                 B[Airflow Scheduler]
                 C[(Postgres Airflow<br/>DB: airflow)]
@@ -13,14 +13,16 @@ graph TD
                 B -->|Lit/Écrit l'état des DAGs| C
                 A -.->|Orchestre| B
             end
+            style subAirflow fill:#85c1e9,stroke:#2e86c1,stroke-width:2px,color:#000
 
-            subgraph "💼 Écosystème Projet RFM"
+            subgraph subRFM["Écosystème Projet RFM"]
                 D[(Postgres Business<br/>DB: rfm_db<br/>Port 5432)]
                 E[📂 Dossier /scripts<br/>Monté en volume]
                 
                 B -->|Exécute les scripts Python| E
                 E -->|Lit/Écrit données RFM| D
             end
+            style subRFM fill:#a3d5df,stroke:#5dade2,stroke-width:2px,color:#000
             
             %% Liaison critique : Le scheduler lit les DAGs et les scripts
             B -.->|Monte le volume ./scripts| E
@@ -33,6 +35,7 @@ graph TD
         C --- F
         D --- G
     end
+    style subHost fill:#d6eaf8,stroke:#5dade2,stroke-width:2px,color:#000
 
     %% Utilisateurs externes
     User((👤 Utilisateur)) -->|Interface Web : localhost:8080| A
