@@ -1,4 +1,4 @@
-# 🚀 Pipeline de Données RFM (Docker & Airflow)
+# Pipeline de Données RFM (Docker & Airflow)
 
 > **Statut** : Production Ready  
 > **Contexte** : Projet pédagogique Ingénieur Data (Bac+5)  

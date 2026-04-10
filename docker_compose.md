@@ -18,9 +18,11 @@ graph TD
             subgraph subRFM["Écosystème Projet RFM"]
                 D[(Postgres Business<br/>DB: rfm_db<br/>Port 5432)]
                 E[📂 Dossier /scripts<br/>Monté en volume]
+                H[Metabase<br/>Port 3000]
                 
                 B -->|Exécute les scripts Python| E
                 E -->|Lit/Écrit données RFM| D
+                H -->|Visualise les données| D
             end
             style subRFM fill:#a3d5df,stroke:#5dade2,stroke-width:2px,color:#000
             
@@ -39,6 +41,7 @@ graph TD
 
     %% Utilisateurs externes
     User((👤 Utilisateur)) -->|Interface Web : localhost:8080| A
+    User -->|Dashboards : localhost:3000| H
     Dev((👨‍💻 Développeur)) -->|Connexion DB : localhost:5432| D
     Dev -->|Édition Code| E
 
@@ -47,6 +50,7 @@ graph TD
     style C fill:#e74c3c,stroke:#c0392b,stroke-width:2px,color:#fff
     style D fill:#27ae60,stroke:#2ecc71,stroke-width:2px,color:#fff
     style E fill:#f39c12,stroke:#d35400,stroke-width:2px,color:#fff
+    style H fill:#3498db,stroke:#2980b9,stroke-width:2px,color:#fff
     style User fill:#95a5a6,stroke:#7f8c8d,color:#fff
     style Dev fill:#95a5a6,stroke:#7f8c8d,color:#fff
 ```
